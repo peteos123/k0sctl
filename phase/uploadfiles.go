@@ -1,9 +1,9 @@
 package phase
 
 import (
+	"fmt"
 	"path"
 
-	"github.com/alessio/shellescape"
 	"github.com/k0sproject/k0sctl/config"
 	"github.com/k0sproject/k0sctl/config/cluster"
 	"github.com/k0sproject/rig/exec"
@@ -55,32 +55,50 @@ func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
 		resolved = append(resolved, files...)
 	}
 
+	dirs := make(map[string]string)
+
 	for _, f := range resolved {
-		tmpfile, err := h.Configurer.TempFile(h)
+		destdir, _, err := f.Destination()
 		if err != nil {
 			return err
 		}
+		dirs[destdir] = f.PermString
+	}
 
+	for d, perm := range dirs {
+		if h.Configurer.FileExist(h, d) {
+			continue
+		}
+
+		log.Infof("%s: creating directory %s", h, d)
+		if err := h.Configurer.MkDir(h, d, exec.Sudo(h)); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", d, err)
+		}
+
+		if err := h.Configurer.Chmod(h, d, perm, exec.Sudo(h)); err != nil {
+			return fmt.Errorf("failed to set permissions for directory %s: %w", d, err)
+		}
+	}
+
+	for _, f := range resolved {
 		destdir, destfile, err := f.Destination()
+		dest := path.Join(destdir, destfile)
 		if err != nil {
 			return err
 		}
 
 		if f.IsURL() {
-			err = p.uploadURL(h, f, tmpfile)
+			err = p.uploadURL(h, f, dest)
 		} else {
-			err = p.uploadLocal(h, f, tmpfile)
+			err = p.uploadLocal(h, f, dest)
 		}
 
 		if err != nil {
 			return err
 		}
 
-		dest := path.Join(destdir, destfile)
-		log.Infof("%s: installing %s to %s", h, f, dest)
-		err = h.Execf("install -m %s -D %s %s", f.PermMode, shellescape.Quote(tmpfile), shellescape.Quote(dest), exec.Sudo(h))
-		if err != nil {
-			return err
+		if err := h.Configurer.Chmod(h, dest, f.PermString, exec.Sudo(h)); err != nil {
+			return fmt.Errorf("failed to set permissions for file %s: %w", dest, err)
 		}
 	}
 

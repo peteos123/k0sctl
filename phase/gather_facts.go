@@ -1,6 +1,8 @@
 package phase
 
 import (
+	"fmt"
+
 	"github.com/k0sproject/k0sctl/config/cluster"
 	log "github.com/sirupsen/logrus"
 )
@@ -32,7 +34,24 @@ func (p *GatherFacts) investigateHost(h *cluster.Host) error {
 	h.Metadata.Arch = output
 	p.IncProp(h.Metadata.Arch)
 
-	h.Metadata.Hostname = h.Configurer.Hostname(h)
+	extra := h.InstallFlags.GetValue("--kubelet-extra-args")
+	if extra != "" {
+		ef := cluster.Flags{extra}
+		if over := ef.GetValue("--hostname-override"); over != "" {
+			if h.HostnameOverride != over {
+				return fmt.Errorf("hostname and installFlags kubelet-extra-args hostname-override mismatch, only define either one")
+			}
+			h.HostnameOverride = over
+		}
+	}
+
+	if h.HostnameOverride != "" {
+		log.Infof("%s: using %s from configuration as hostname", h, h.HostnameOverride)
+		h.Metadata.Hostname = h.HostnameOverride
+	} else {
+		h.Metadata.Hostname = h.Configurer.Hostname(h)
+		log.Infof("%s: using %s as hostname", h, h.Metadata.Hostname)
+	}
 
 	if h.PrivateAddress == "" {
 		if h.PrivateInterface == "" {

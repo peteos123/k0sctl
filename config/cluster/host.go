@@ -30,6 +30,7 @@ type Host struct {
 	InstallFlags     Flags             `yaml:"installFlags,omitempty"`
 	Files            []UploadFile      `yaml:"files,omitempty"`
 	OSIDOverride     string            `yaml:"os,omitempty"`
+	HostnameOverride string            `yaml:"hostname,omitempty"`
 	Hooks            Hooks             `yaml:"hooks,omitempty"`
 
 	UploadBinaryPath string       `yaml:"-"`
@@ -56,12 +57,13 @@ type configurer interface {
 	ServiceScriptPath(os.Host, string) (string, error)
 	ReadFile(os.Host, string) (string, error)
 	FileExist(os.Host, string) bool
-	Chmod(os.Host, string, string) error
+	Chmod(os.Host, string, string, ...exec.Option) error
 	DownloadK0s(os.Host, string, string) error
 	DownloadURL(os.Host, string, string) error
 	InstallPackage(os.Host, ...string) error
 	FileContains(os.Host, string, string) bool
 	MoveFile(os.Host, string, string) error
+	MkDir(os.Host, string, ...exec.Option) error
 	DeleteFile(os.Host, string) error
 	CommandExist(os.Host, string) bool
 	Hostname(os.Host) string
@@ -206,6 +208,9 @@ func (h *Host) K0sInstallCommand() string {
 			extra = Flags{unQE(old)}
 		}
 		extra.AddUnlessExist(fmt.Sprintf("--node-ip=%s", h.PrivateAddress))
+		if h.HostnameOverride != "" {
+			extra.AddOrReplace(fmt.Sprintf("--hostname-override=%s", h.HostnameOverride))
+		}
 		flags.AddOrReplace(fmt.Sprintf("--kubelet-extra-args=%s", strconv.Quote(extra.Join())))
 	}
 

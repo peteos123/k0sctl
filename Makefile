@@ -6,7 +6,7 @@ ifdef TAG_NAME
 endif
 ENVIRONMENT ?= "development"
 
-LD_FLAGS = -s -w -X github.com/k0sproject/k0sctl/version.Environment=$(ENVIRONMENT) -X github.com/k0sproject/k0sctl/integration/segment.WriteKey=$(SEGMENT_WRITE_KEY) -X github.com/k0sproject/k0sctl/version.GitCommit=$(GIT_COMMIT) -X github.com/k0sproject/k0sctl/version.Version=$(K0SCTL_VERSION)
+LD_FLAGS = -s -w -X github.com/k0sproject/k0sctl/version.Environment=$(ENVIRONMENT) -X github.com/k0sproject/k0sctl/version.GitCommit=$(GIT_COMMIT) -X github.com/k0sproject/k0sctl/version.Version=$(K0SCTL_VERSION)
 BUILD_FLAGS = -trimpath -a -tags "netgo static_build" -installsuffix netgo -ldflags "$(LD_FLAGS) -extldflags '-static'"
 
 bin/k0sctl-linux-x64: $(GO_SRCS)
@@ -14,6 +14,9 @@ bin/k0sctl-linux-x64: $(GO_SRCS)
 
 bin/k0sctl-linux-arm64: $(GO_SRCS)
 	GOOS=linux GOARCH=arm64 go build $(BUILD_FLAGS) -o bin/k0sctl-linux-arm64 main.go
+
+bin/k0sctl-linux-arm: $(GO_SRCS)
+	GOOS=linux GOARCH=arm go build $(BUILD_FLAGS) -o bin/k0sctl-linux-arm main.go
 
 bin/k0sctl-win-x64.exe: $(GO_SRCS)
 	GOOS=windows GOARCH=amd64 go build $(BUILD_FLAGS) -o bin/k0sctl-win-x64.exe main.go
@@ -28,7 +31,7 @@ bin/%.sha256: bin/%
 	sha256sum -b $< | sed 's/bin\///' > $@.tmp
 	mv $@.tmp $@
 
-bins := k0sctl-linux-x64 k0sctl-linux-arm64 k0sctl-win-x64.exe k0sctl-darwin-x64 k0sctl-darwin-arm64
+bins := k0sctl-linux-x64 k0sctl-linux-arm64 k0sctl-linux-arm k0sctl-win-x64.exe k0sctl-darwin-x64 k0sctl-darwin-arm64
 checksums := $(addsuffix .sha256,$(bins))
 
 .PHONY: build-all
