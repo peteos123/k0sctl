@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -31,17 +32,25 @@ func (u *UploadFile) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	switch t := u.PermMode.(type) {
-	case int:
-		if t < 0 {
-			return fmt.Errorf("invalid uploadFile permission: %d: must be a positive value", t)
+	case int, float64:
+		var num int
+		if n, ok := t.(float64); ok {
+			num = int(n)
+		} else {
+			num = t.(int)
 		}
-		if t == 0 {
+
+		if num < 0 {
+			return fmt.Errorf("invalid uploadFile permission: %d: must be a positive value", num)
+		}
+		if num == 0 {
 			return fmt.Errorf("invalid nil uploadFile permission")
 		}
-		u.PermString = fmt.Sprintf("%#o", t)
+		u.PermString = fmt.Sprintf("%#o", num)
 	case string:
 		u.PermString = t
 	default:
+		println(reflect.TypeOf(t).Elem())
 		u.PermString = ""
 	}
 
