@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -50,7 +49,6 @@ func (u *UploadFile) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	case string:
 		u.PermString = t
 	default:
-		println(reflect.TypeOf(t).Elem())
 		u.PermString = ""
 	}
 
