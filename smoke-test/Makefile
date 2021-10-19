@@ -19,6 +19,9 @@ id_rsa_k0s:
 smoke-basic: $(footloose) id_rsa_k0s
 	./smoke-basic.sh
 
+smoke-files: $(footloose) id_rsa_k0s
+	./smoke-files.sh
+
 smoke-init: $(footloose) id_rsa_k0s
 	./smoke-init.sh
 
