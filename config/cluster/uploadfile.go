@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 // UploadFile describes a file to be uploaded for the host
@@ -15,8 +16,9 @@ type UploadFile struct {
 	Source          string      `yaml:"src" validate:"required"`
 	DestinationDir  string      `yaml:"dstDir" validate:"required"`
 	DestinationFile string      `yaml:"dst"`
-	PermMode        interface{} `yaml:"perm" default:"0755"`
+	PermMode        interface{} `yaml:"perm"`
 	PermString      string      `yaml:"-"`
+	LocalPermString string      `yaml:"-"`
 }
 
 // UnmarshalYAML sets in some sane defaults when unmarshaling the data from yaml
@@ -40,7 +42,7 @@ func (u *UploadFile) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	case string:
 		u.PermString = t
 	default:
-		return fmt.Errorf("invalid value for uploadFile perm, must be a string or a number")
+		u.PermString = ""
 	}
 
 	for i, c := range u.PermString {
@@ -96,13 +98,17 @@ func (u UploadFile) Resolve() ([]UploadFile, error) {
 		return u.glob(path.Join(u.Source, "**/*"))
 	}
 
-	// it is a single file, return self inside a slice
+	// it is a single file, capture the perms return self inside a slice
+	u.LocalPermString = fmt.Sprintf("%#o", stat.Mode().Perm())
 	return append(files, u), nil
 }
 
 func (u UploadFile) glob(src string) ([]UploadFile, error) {
 	var files []UploadFile
-	sources, err := filepath.Glob(src)
+
+	base, pattern := doublestar.SplitPattern(src)
+	fsys := os.DirFS(base)
+	sources, err := doublestar.Glob(fsys, pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -117,12 +123,19 @@ func (u UploadFile) glob(src string) ([]UploadFile, error) {
 			name = fmt.Sprintf("%s: %s (%d of %d)", u.Name, s, i+1, len(sources))
 		}
 
+		stat, err := os.Stat(s)
+		if err != nil {
+			return files, err
+		}
+
 		files = append(files, UploadFile{
 			Name:            name,
 			Source:          s,
-			DestinationDir:  u.DestinationDir,
-			DestinationFile: u.DestinationFile,
+			DestinationDir:  path.Join(u.DestinationDir, strings.TrimPrefix(s, base)),
+			DestinationFile: path.Base(s),
 			PermMode:        u.PermMode,
+			PermString:      u.PermString,
+			LocalPermString: fmt.Sprintf("%#o", stat.Mode().Perm()),
 		})
 	}
 
@@ -136,20 +149,13 @@ func (u UploadFile) IsURL() bool {
 
 // Destination returns the target path and filename or an error if one couldn't be determined
 func (u UploadFile) Destination() (string, string, error) {
-	if u.DestinationDir == "" {
-		if u.DestinationFile == "" {
-			return "", "", fmt.Errorf("no destination set for file %s", u)
-		}
-		dir, fn := path.Split(u.DestinationFile)
-		if dir == "" || fn == "" {
-			return "", "", fmt.Errorf("destination directory not set for %s and destination is not absolute", u)
-		}
-		return dir, fn, nil
-	}
-
-	if u.DestinationFile != "" {
+	if u.DestinationDir != "" && u.DestinationFile != "" {
 		return u.DestinationDir, u.DestinationFile, nil
 	}
 
-	return u.DestinationDir, path.Base(u.Source), nil
+	if u.DestinationFile == "" {
+		return u.DestinationDir, path.Base(u.Source), nil
+	}
+
+	return path.Dir(u.DestinationFile), path.Base(u.DestinationFile), nil
 }

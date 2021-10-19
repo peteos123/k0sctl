@@ -55,17 +55,17 @@ func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
 		resolved = append(resolved, files...)
 	}
 
-	dirs := make(map[string]string)
+	dirs := make(map[string]struct{})
 
 	for _, f := range resolved {
 		destdir, _, err := f.Destination()
 		if err != nil {
 			return err
 		}
-		dirs[destdir] = f.PermString
+		dirs[destdir] = struct{}{}
 	}
 
-	for d, perm := range dirs {
+	for d := range dirs {
 		if h.Configurer.FileExist(h, d) {
 			continue
 		}
@@ -75,7 +75,7 @@ func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
 			return fmt.Errorf("failed to create directory %s: %w", d, err)
 		}
 
-		if err := h.Configurer.Chmod(h, d, perm, exec.Sudo(h)); err != nil {
+		if err := h.Configurer.Chmod(h, d, "0755", exec.Sudo(h)); err != nil {
 			return fmt.Errorf("failed to set permissions for directory %s: %w", d, err)
 		}
 	}
@@ -97,9 +97,6 @@ func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
 			return err
 		}
 
-		if err := h.Configurer.Chmod(h, dest, f.PermString, exec.Sudo(h)); err != nil {
-			return fmt.Errorf("failed to set permissions for file %s: %w", dest, err)
-		}
 	}
 
 	return nil
@@ -107,9 +104,26 @@ func (p *UploadFiles) uploadFiles(h *cluster.Host) error {
 
 func (p *UploadFiles) uploadLocal(h *cluster.Host, f cluster.UploadFile, dest string) error {
 	log.Infof("%s: uploading %s", h, f)
-	return h.Upload(f.Source, dest)
+	if err := h.Upload(f.Source, dest); err != nil {
+		return err
+	}
+
+	perm := f.PermString
+	if perm == "" {
+		perm = f.LocalPermString
+	}
+	return h.Configurer.Chmod(h, dest, perm, exec.Sudo(h))
 }
+
 func (p *UploadFiles) uploadURL(h *cluster.Host, f cluster.UploadFile, dest string) error {
 	log.Infof("%s: downloading %s", h, f)
-	return h.Configurer.DownloadURL(h, f.Source, dest)
+	if err := h.Configurer.DownloadURL(h, f.Source, dest); err != nil {
+		return err
+	}
+
+	if f.PermString == "" {
+		return nil
+	}
+
+	return h.Configurer.Chmod(h, dest, f.PermString, exec.Sudo(h))
 }

@@ -8,6 +8,7 @@ require (
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20210404020558-97928f7e12b6 // indirect
 	github.com/Masterminds/semver v1.5.0
 	github.com/avast/retry-go v3.0.0+incompatible
+	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/creasty/defaults v1.5.2
 	github.com/denisbrodbeck/machineid v1.0.1
