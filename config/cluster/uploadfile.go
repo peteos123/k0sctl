@@ -135,6 +135,10 @@ func (u UploadFile) glob(src string) ([]UploadFile, error) {
 			return files, err
 		}
 
+		if stat.IsDir() {
+			continue
+		}
+
 		files = append(files, UploadFile{
 			Name:            name,
 			Source:          s,
