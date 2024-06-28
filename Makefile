@@ -51,19 +51,14 @@ build-all: $(addprefix bin/,$(bins)) bin/checksums.md
 clean:
 	rm -rf bin/ k0sctl
 
-smoketests := smoke-basic smoke-files smoke-upgrade smoke-reset smoke-os-override smoke-init smoke-backup-restore smoke-dynamic smoke-basic-openssh smoke-dryrun
+smoketests := smoke-basic smoke-basic-rootless smoke-files smoke-upgrade smoke-reset smoke-os-override smoke-init smoke-backup-restore smoke-dynamic smoke-basic-openssh smoke-dryrun smoke-downloadurl smoke-controller-swap
 .PHONY: $(smoketests)
 $(smoketests): k0sctl
 	$(MAKE) -C smoke-test $@
 
-golint := $(shell which golangci-lint)
+golint := $(shell which golangci-lint 2>/dev/null)
 ifeq ($(golint),)
 golint := $(shell go env GOPATH)/bin/golangci-lint
-endif
-
-gotest := $(shell which gotest)
-ifeq ($(gotest),)
-gotest := go test
 endif
 
 $(golint):
@@ -75,7 +70,7 @@ lint: $(golint)
 
 .PHONY: test
 test: $(GO_SRCS) $(GO_TESTS)
-	$(gotest) -v ./...
+	go test -v ./...
 
 .PHONY: install
 install: k0sctl

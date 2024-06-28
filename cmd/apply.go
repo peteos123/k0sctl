@@ -55,6 +55,7 @@ var applyCommand = &cli.Command{
 		redactFlag,
 		retryIntervalFlag,
 		retryTimeoutFlag,
+		ignoredUpgradeCheckFlag,
 		analyticsFlag,
 	},
 	Before: actions(initLogging, initConfig, initManager, displayLogo, initAnalytics, displayCopyright, warnOldCache),
@@ -80,6 +81,7 @@ var applyCommand = &cli.Command{
 			NoDrain:               ctx.Bool("no-drain"),
 			DisableDowngradeCheck: ctx.Bool("disable-downgrade-check"),
 			RestoreFrom:           ctx.String("restore-from"),
+			ConfigPath:            ctx.String("config"),
 		}
 
 		if err := applyAction.Run(); err != nil {

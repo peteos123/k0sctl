@@ -22,6 +22,9 @@ id_rsa_k0s:
 smoke-basic: $(bootloose) id_rsa_k0s k0sctl
 	./smoke-basic.sh
 
+smoke-basic-rootless: $(bootloose) id_rsa_k0s k0sctl
+	./smoke-basic-rootless.sh
+
 smoke-basic-openssh: $(bootloose) id_rsa_k0s k0sctl
 	./smoke-basic-openssh.sh
 
@@ -46,8 +49,14 @@ smoke-reset: $(bootloose) id_rsa_k0s k0sctl
 smoke-os-override: $(bootloose) id_rsa_k0s k0sctl
 	BOOTLOOSE_TEMPLATE=bootloose.yaml.osoverride.tpl K0SCTL_CONFIG=k0sctl-single.yaml OS_RELEASE_PATH=$(realpath os-release) OS_OVERRIDE="ubuntu" ./smoke-basic.sh
 
+smoke-downloadurl: $(bootloose) id_rsa_k0s k0sctl
+	BOOTLOOSE_TEMPLATE=bootloose.yaml.single.tpl K0SCTL_CONFIG=k0sctl-downloadurl.yaml ./smoke-basic.sh
+
 smoke-backup-restore: $(bootloose) id_rsa_k0s k0sctl
 	./smoke-backup-restore.sh
+
+smoke-controller-swap: $(bootloose) id_rsa_k0s k0sctl
+	BOOTLOOSE_TEMPLATE=bootloose-controller-swap.yaml.tpl K0SCTL_CONFIG=k0sctl-controller-swap.yaml ./smoke-controller-swap.sh
 
 %.iid: Dockerfile.%
 	docker build --iidfile '$@' - < '$<'

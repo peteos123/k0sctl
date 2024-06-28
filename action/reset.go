@@ -48,7 +48,7 @@ func (r Reset) Run() error {
 		&phase.DetectOS{},
 		lockPhase,
 		&phase.PrepareHosts{},
-		&phase.GatherFacts{},
+		&phase.GatherFacts{SkipMachineIDs: true},
 		&phase.GatherK0sFacts{},
 		&phase.RunHooks{Stage: "before", Action: "reset"},
 		&phase.ResetWorkers{
@@ -61,6 +61,7 @@ func (r Reset) Run() error {
 			NoLeave:  true,
 		},
 		&phase.ResetLeader{},
+		&phase.DaemonReload{},
 		&phase.RunHooks{Stage: "after", Action: "reset"},
 		&phase.Unlock{Cancel: lockPhase.Cancel},
 		&phase.Disconnect{},
