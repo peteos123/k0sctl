@@ -34,7 +34,11 @@ type (
 	ctxLogFileKey struct{}
 )
 
+const veryLongTime = 100 * 365 * 24 * time.Hour // 100 years is infinite enough
+
 var (
+	globalCancel context.CancelFunc
+
 	debugFlag = &cli.BoolFlag{
 		Name:    "debug",
 		Usage:   "Enable debug logging",
@@ -81,21 +85,40 @@ var (
 		Value: 5,
 	}
 
+	timeoutFlag = &cli.DurationFlag{
+		Name:  "timeout",
+		Usage: "Timeout for the whole operation. Set to 0 to wait forever. Can be used to allow more time for the operation to finish before giving up.",
+		Value: 0,
+		Action: func(ctx *cli.Context, d time.Duration) error {
+			if d == 0 {
+				d = veryLongTime
+			}
+			timeoutCtx, cancel := context.WithTimeout(ctx.Context, d)
+			ctx.Context = timeoutCtx
+			globalCancel = cancel
+			return nil
+		},
+	}
+
 	retryTimeoutFlag = &cli.DurationFlag{
-		Name:  "default-timeout",
-		Usage: "Default timeout when waiting for node state changes",
-		Value: retry.DefaultTimeout,
+		Name:   "default-timeout",
+		Hidden: true,
+		Usage:  "Default timeout when waiting for node state changes",
+		Value:  retry.DefaultTimeout,
 		Action: func(_ *cli.Context, d time.Duration) error {
+			log.Warnf("default-timeout flag is deprecated and will be removed, use --timeout instead")
 			retry.DefaultTimeout = d
 			return nil
 		},
 	}
 
 	retryIntervalFlag = &cli.DurationFlag{
-		Name:  "retry-interval",
-		Usage: "Retry interval when waiting for node state changes",
-		Value: retry.Interval,
+		Name:   "retry-interval",
+		Usage:  "Retry interval when waiting for node state changes",
+		Hidden: true,
+		Value:  retry.Interval,
 		Action: func(_ *cli.Context, d time.Duration) error {
+			log.Warnf("retry-interval flag is deprecated and will be removed")
 			retry.Interval = d
 			return nil
 		},
@@ -103,6 +126,13 @@ var (
 
 	Colorize = aurora.NewAurora(false)
 )
+
+func cancelTimeout(_ *cli.Context) error {
+	if globalCancel != nil {
+		globalCancel()
+	}
+	return nil
+}
 
 // actions can be used to chain action functions (for urfave/cli's Before, After, etc)
 func actions(funcs ...func(*cli.Context) error) func(*cli.Context) error {
