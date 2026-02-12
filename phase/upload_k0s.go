@@ -3,8 +3,10 @@ package phase
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/k0sproject/k0sctl/pkg/apis/k0sctl.k0sproject.io/v1beta1"
@@ -63,11 +65,20 @@ func (p *UploadK0s) Run(ctx context.Context) error {
 }
 
 func (p *UploadK0s) uploadBinary(_ context.Context, h *cluster.Host) error {
-	tmp := h.K0sInstallLocation() + ".tmp." + strconv.Itoa(int(time.Now().UnixNano()))
+	ts := strconv.Itoa(int(time.Now().UnixNano()))
+	bin := h.K0sInstallLocation()
+	tmp := bin + ".tmp." + ts
+	if h.IsConnected() && h.IsWindows() {
+		// Place the temp marker before the .exe extension
+		if strings.HasSuffix(strings.ToLower(bin), ".exe") {
+			tmp = strings.TrimSuffix(bin, ".exe") + ".tmp." + ts + ".exe"
+		}
+	}
 
-	stat, err := os.Stat(h.UploadBinaryPath)
-	if err != nil {
-		return fmt.Errorf("stat %s: %w", h.UploadBinaryPath, err)
+	// Ensure target directory exists before uploading the temp binary.
+	dir := h.Configurer.Dir(bin)
+	if err := h.SudoFsys().MkDirAll(dir, fs.FileMode(0o755)); err != nil {
+		return fmt.Errorf("create k0s binary dir %s: %w", dir, err)
 	}
 
 	log.Infof("%s: uploading k0s binary from %s to %s", h, h.UploadBinaryPath, tmp)
@@ -75,11 +86,16 @@ func (p *UploadK0s) uploadBinary(_ context.Context, h *cluster.Host) error {
 		return fmt.Errorf("upload k0s binary: %w", err)
 	}
 
+	stat, err := os.Stat(h.UploadBinaryPath)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", h.UploadBinaryPath, err)
+	}
+
 	if err := h.Configurer.Touch(h, tmp, stat.ModTime(), exec.Sudo(h)); err != nil {
 		return fmt.Errorf("failed to touch %s: %w", tmp, err)
 	}
-	if err := h.Execf(`chmod +x "%s"`, tmp, exec.Sudo(h)); err != nil {
-		log.Warnf("%s: failed to chmod k0s temp binary: %v", h, err.Error())
+	if err := chmodWithMode(h, tmp, fs.FileMode(0o755)); err != nil {
+		log.Warnf("%s: failed to chmod k0s temp binary: %v", h, err)
 	}
 
 	h.Metadata.K0sBinaryTempFile = tmp
